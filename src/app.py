@@ -1,4 +1,8 @@
 import flet as ft
+import json
+from http import HTTPStatus
+import requests
+import os
 import sys
 # 画像はここからいいのが取れそう
 # https://japaclip.com/sushi/
@@ -31,6 +35,9 @@ SidemenuImagePathDict = {
 
 # 画面内に表示する横の列の最大画像(寿司)数
 MAX_ROW_VIEW_IMAGE_NUM = 4
+
+# 注文時に実行するAPI
+ORDER_API = os.environ.get('ORDER_API')
 
 # リスト取得関数 (list index out of range回避)
 def list_get(lst, index, error):
@@ -177,8 +184,20 @@ class FletApp(object):
     def order_request(self, e):
         # モーダルダイアログを閉じる
         self.dlg_modal.open = False
-        # TODO 一旦ログ表示のみ
         print("{}を{}個注文しました.".format(self.order_name, self.order_count))
+        if ORDER_API is not None:
+            # APIが環境変数で設定されていれば実行
+            body_message = {'sushi_name': self.order_name, 'sushi_num': self.order_count}
+            print("post request:{}".format(ORDER_API))
+            res = requests.post(ORDER_API, data=json.dumps(body_message))
+            if res.status_code == HTTPStatus.OK:
+                # 成功
+                print("status_code:{} response:{}".format(res.status_code, res.json()))
+            else:
+                # パラメータ異常
+                # その他異常 (Internal server error 含む)
+                print("status_code:{} response:{}".format(res.status_code, res.json()))
+
         # 念の為注文数クリア
         self.order_count = 1
         # 念の為注文品名クリア
