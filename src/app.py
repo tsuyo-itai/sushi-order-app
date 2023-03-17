@@ -38,6 +38,8 @@ MAX_ROW_VIEW_IMAGE_NUM = 4
 
 # 注文時に実行するAPI
 ORDER_API = os.environ.get('ORDER_API')
+# 店員呼び出し時に実行するAPI
+CLERK_CALL_API = os.environ.get('CLERK_CALL_API')
 
 # リスト取得関数 (list index out of range回避)
 def list_get(lst, index, error):
@@ -125,14 +127,14 @@ class FletApp(object):
                     height=200,
                     border_radius=10,
                     ink=True,
-                    on_click=self.open_dlg_modal,
+                    on_click=self.order_dlg_modal,
                     data=getdictkey_from_value(target_array, sushi_image.src)
                 )
                 for sushi_image in input_array
             ]
 
     # モーダルダイアログを開く (注文確認ダイアログ)
-    def open_dlg_modal(self, e):
+    def order_dlg_modal(self, e):
         # 注文ダイアログ表示時にカウントクリアする
         self.order_count = 1
         # 注文品名保持用へ代入
@@ -241,6 +243,70 @@ class FletApp(object):
         self.page.update()
 
 
+    # モーダルダイアログを開く (店員呼び出しダイアログ)
+    def clerk_call_dlg_modal(self, e):
+
+        # 選択時のモーダルダイアログ
+        self.dlg_modal = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("店員呼び出し"),
+            content=ft.Text("店員の呼び出しを行いますか?", text_align=ft.TextAlign.CENTER),
+            actions=[
+                ft.Row(
+                    [
+                        ft.Container(
+                            content=ft.ElevatedButton(" は い ", icon=ft.icons.CHECK_CIRCLE_SHARP, color="white", bgcolor="blue", on_click=self.clerk_call_request),
+                            margin=ft.margin.only(top=10),  # 上方向のみマージンを入れる
+                            # padding=10,
+                            alignment=ft.alignment.center_left
+                        ),
+
+                        ft.Container(
+                            content=ft.ElevatedButton("いいえ", icon=ft.icons.CANCEL, color="white", bgcolor="red", on_click=self.clerk_call_cancel),
+                            margin=ft.margin.only(top=10),  # 上方向のみマージンを入れる
+                            # padding=10,
+                            alignment=ft.alignment.center_right
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+
+            ],
+            on_dismiss=lambda e: print("Modal dialog dismissed!"),
+        )
+
+        self.page.dialog = self.dlg_modal
+        self.dlg_modal.open = True
+        self.page.update()
+
+    # 店員呼び出しリクエスト (はい押下時)
+    def clerk_call_request(self, e):
+        # モーダルダイアログを閉じる
+        self.dlg_modal.open = False
+
+        print("店員を呼び出しました")
+        if CLERK_CALL_API is not None:
+            # APIが環境変数で設定されていれば実行
+            body_message = {'message_kind': "CLERK_CALL_API"}
+            print("post request:{}".format(CLERK_CALL_API))
+            res = requests.post(CLERK_CALL_API, data=json.dumps(body_message))
+            if res.status_code == HTTPStatus.OK:
+                # 成功
+                print("status_code:{} response:{}".format(res.status_code, res.json()))
+            else:
+                # パラメータ異常
+                # その他異常 (Internal server error 含む)
+                print("status_code:{} response:{}".format(res.status_code, res.json()))
+
+        self.page.update()
+
+    # 店員呼び出しキャンセル (いいえ押下時)
+    def clerk_call_cancel(self, e):
+        # モーダルダイアログを閉じる
+        self.dlg_modal.open = False
+
+        self.page.update()
+
 def main(page: ft.Page):
     flet_app = FletApp(page)
 
@@ -340,6 +406,7 @@ def main(page: ft.Page):
             ft.Container(
                 content = ft.OutlinedButton(
                     "店員呼び出し",
+                    on_click=flet_app.clerk_call_dlg_modal,
                     style=ft.ButtonStyle(
                         color={
                             ft.MaterialState.HOVERED: ft.colors.WHITE,
