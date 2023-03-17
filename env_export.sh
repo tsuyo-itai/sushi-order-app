@@ -1,0 +1,12 @@
+#!/bin/sh
+
+LINE_CHANNEL_ACCESS_TOKEN=""
+LINE_USER_ID=""
+
+if [ -n "$LINE_CHANNEL_ACCESS_TOKEN" ]; then
+  export LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+fi
+
+if [ -n "$LINE_USER_ID" ]; then
+  export LINE_USER_ID=${LINE_USER_ID}
+fi

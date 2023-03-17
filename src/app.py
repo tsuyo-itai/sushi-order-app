@@ -1,9 +1,9 @@
 import flet as ft
-import json
-from http import HTTPStatus
-import requests
 import os
-import sys
+from linebot import LineBotApi
+from linebot.models import TextSendMessage
+from linebot.exceptions import LineBotApiError
+
 # 画像はここからいいのが取れそう
 # https://japaclip.com/sushi/
 
@@ -36,10 +36,10 @@ SidemenuImagePathDict = {
 # 画面内に表示する横の列の最大画像(寿司)数
 MAX_ROW_VIEW_IMAGE_NUM = 4
 
-# 注文時に実行するAPI
-ORDER_API = os.environ.get('ORDER_API')
-# 店員呼び出し時に実行するAPI
-CLERK_CALL_API = os.environ.get('CLERK_CALL_API')
+# LINEのチャンネルアクセストークン
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
+# LINEのユーザーID
+LINE_USER_ID = os.environ.get('LINE_USER_ID')
 
 # リスト取得関数 (list index out of range回避)
 def list_get(lst, index, error):
@@ -67,8 +67,6 @@ def getdictkey_from_value(dic, value):
         return None
 
 
-
-
 class FletApp(object):
     def __init__(self, page):
         self.page = page
@@ -88,6 +86,10 @@ class FletApp(object):
         self.order_count = 1
         # 注文品名
         self.order_name = None
+
+        # LINEメッセージ送信用
+        self.line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN) if LINE_CHANNEL_ACCESS_TOKEN is not None else None
+        self.line_bot_userid = LINE_USER_ID
 
     # 描画用の寿司画像配列の作成 2次元リストとなる
     def create_image_array(self, target_array):
@@ -186,19 +188,14 @@ class FletApp(object):
     def order_request(self, e):
         # モーダルダイアログを閉じる
         self.dlg_modal.open = False
-        print("{}を{}個注文しました.".format(self.order_name, self.order_count))
-        if ORDER_API is not None:
-            # APIが環境変数で設定されていれば実行
-            body_message = {'sushi_name': self.order_name, 'sushi_num': self.order_count}
-            print("post request:{}".format(ORDER_API))
-            res = requests.post(ORDER_API, data=json.dumps(body_message))
-            if res.status_code == HTTPStatus.OK:
-                # 成功
-                print("status_code:{} response:{}".format(res.status_code, res.json()))
-            else:
-                # パラメータ異常
-                # その他異常 (Internal server error 含む)
-                print("status_code:{} response:{}".format(res.status_code, res.json()))
+        print("「{}」を{}個注文しました.".format(self.order_name, self.order_count))
+
+        # LINE用のトークンが設定されている場合
+        if self.line_bot_api is not None and self.line_bot_userid is not None:
+            try:
+                self.line_bot_api.push_message(self.line_bot_userid, TextSendMessage(text="「{}」が{}個注文されました.".format(self.order_name, self.order_count)))
+            except LineBotApiError as e:
+                print("->LINE送信エラー (注文に失敗しました)")
 
         # 念の為注文数クリア
         self.order_count = 1
@@ -285,18 +282,13 @@ class FletApp(object):
         self.dlg_modal.open = False
 
         print("店員を呼び出しました")
-        if CLERK_CALL_API is not None:
-            # APIが環境変数で設定されていれば実行
-            body_message = {'message_kind': "CLERK_CALL_API"}
-            print("post request:{}".format(CLERK_CALL_API))
-            res = requests.post(CLERK_CALL_API, data=json.dumps(body_message))
-            if res.status_code == HTTPStatus.OK:
-                # 成功
-                print("status_code:{} response:{}".format(res.status_code, res.json()))
-            else:
-                # パラメータ異常
-                # その他異常 (Internal server error 含む)
-                print("status_code:{} response:{}".format(res.status_code, res.json()))
+
+        # LINE用のトークンが設定されている場合
+        if self.line_bot_api is not None and self.line_bot_userid is not None:
+            try:
+                self.line_bot_api.push_message(self.line_bot_userid, TextSendMessage(text="店員呼び出し中..\nテーブルへ向かってください."))
+            except LineBotApiError as e:
+                print("->LINE送信エラー (店員呼び出しに失敗しました)")
 
         self.page.update()
 
@@ -466,11 +458,13 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
 
+    # GUIアプリとして起動
     # ft.app(
     #     target=main,
     #     assets_dir="assets"
     # )
 
+    # WEBブラウザで起動
     ft.app(
         target=main,
         view=ft.WEB_BROWSER,
