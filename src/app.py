@@ -70,6 +70,9 @@ def getdictkey_from_value(dic, value):
 class FletApp(object):
     def __init__(self, page):
         self.page = page
+        self.page.fonts = {
+            "Corporate-Logo-Rounded": "/fonts/Corporate-Logo-Rounded-Bold-ver3.otf"
+        }
         self.page.title = "お寿司注文.app"
         ## 縦中央揃え
         # page.vertical_alignment = ft.MainAxisAlignment.CENTER
@@ -352,6 +355,14 @@ def main(page: ft.Page):
 
     # #! list index out of rangeの場合Noneが返るが、ft.Row(None)であれば描画されないので問題なしとする
 
+    ## ロゴ
+    logo_text_field = ft.Row([
+        ft.Image(src=f"/images/logo.png", width=80, height=47, fit=ft.ImageFit.FILL, repeat=ft.ImageRepeat.NO_REPEAT, border_radius=ft.border_radius.all(10)),
+        ft.Text("お寿司注文", size=50, weight=ft.FontWeight.NORMAL, color="#F36890", font_family="Corporate-Logo-Rounded"),
+        ft.Text("アプリ", size=50, weight=ft.FontWeight.NORMAL, color="#86CCFD", font_family="Corporate-Logo-Rounded")
+        ],
+        spacing=0
+        )
 
     ## タブ 1 にぎり
     tab_field = ft.Tabs(
@@ -452,6 +463,7 @@ def main(page: ft.Page):
     )
 
     flet_app.page.add(
+        logo_text_field,
         tab_field,
         function_button_field
     )
