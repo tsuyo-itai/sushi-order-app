@@ -90,9 +90,19 @@ class FletApp(object):
         # 注文品名
         self.order_name = None
 
+        # 注文履歴格納用辞書
+        self.order_history_dict = {}
+
         # LINEメッセージ送信用
         self.line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN) if LINE_CHANNEL_ACCESS_TOKEN is not None else None
         self.line_bot_userid = LINE_USER_ID
+
+    # 注文履歴をアップデート
+    def order_dict_update(self, order_name: str, order_count: int):
+        if order_name in self.order_history_dict:
+            self.order_history_dict[order_name] = self.order_history_dict[order_name] + order_count
+        else:
+            self.order_history_dict[order_name] = order_count
 
     # 描画用の寿司画像配列の作成 2次元リストとなる
     def create_image_array(self, target_array):
@@ -192,6 +202,8 @@ class FletApp(object):
         # モーダルダイアログを閉じる
         self.dlg_modal.open = False
         print("「{}」を{}個注文しました.".format(self.order_name, self.order_count))
+        # 注文履歴を更新
+        self.order_dict_update(self.order_name, self.order_count)
 
         # LINE用のトークンが設定されている場合
         if self.line_bot_api is not None and self.line_bot_userid is not None:
@@ -262,7 +274,7 @@ class FletApp(object):
                         ),
 
                         ft.Container(
-                            content=ft.ElevatedButton("いいえ", icon=ft.icons.CANCEL, color="white", bgcolor="red", on_click=self.clerk_call_cancel),
+                            content=ft.ElevatedButton("いいえ", icon=ft.icons.CANCEL, color="white", bgcolor="red", on_click=self.modal_close),
                             margin=ft.margin.only(top=10),  # 上方向のみマージンを入れる
                             # padding=10,
                             alignment=ft.alignment.center_right
@@ -295,11 +307,52 @@ class FletApp(object):
 
         self.page.update()
 
-    # 店員呼び出しキャンセル (いいえ押下時)
-    def clerk_call_cancel(self, e):
+    # モーダルウィンドウ閉じる (閉じる・いいえ押下時)
+    def modal_close(self, e):
         # モーダルダイアログを閉じる
         self.dlg_modal.open = False
 
+        self.page.update()
+
+
+    # モーダルダイアログを開く (注文一覧ダイアログ)
+    def check_order_history_dlg_modal(self, e):
+
+        # 選択時のモーダルダイアログ
+        self.dlg_modal = ft.AlertDialog(
+            title=ft.Text("注文一覧"),
+            # content=ft.TextButton("閉じる", icon=ft.icons.CANCEL, icon_color="red400", on_click=self.modal_close),
+            actions=[
+                #* わかりにくいがリスト内包表記でリストを展開して返している
+                ft.Row(
+                    [
+                        ft.Container(
+                            content=ft.Text(value=one_order_name, size=15, weight=ft.FontWeight.W_900),
+                            margin=ft.margin.only(top=1, bottom=4),
+                            # padding=10,
+                            alignment=ft.alignment.center_left
+                        ),
+
+                        ft.Container(
+                            content=ft.Text(value=str(self.order_history_dict[one_order_name]) + "個", size=15, weight=ft.FontWeight.W_900),
+                            margin=ft.margin.only(top=1, bottom=4),
+                            # padding=10,
+                            alignment=ft.alignment.center_right
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+                for one_order_name in self.order_history_dict
+            ],
+            # on_dismiss=lambda e: print("Modal dialog dismissed!"),
+        )
+
+        self.page.dialog = self.dlg_modal
+
+        if len(self.dlg_modal.actions) == 0:
+            self.dlg_modal.actions.append(ft.Row([ft.Container(content=ft.Text("注文した商品はありません"), margin=ft.margin.only(top=1, bottom=4))], alignment=ft.MainAxisAlignment.CENTER))
+        self.dlg_modal.actions.append(ft.Row([ft.TextButton("閉じる", icon=ft.icons.CANCEL, icon_color="red400", on_click=self.modal_close)], alignment=ft.MainAxisAlignment.CENTER))
+        self.dlg_modal.open = True
         self.page.update()
 
 def main(page: ft.Page):
@@ -445,6 +498,7 @@ def main(page: ft.Page):
             ft.Container(
                 content = ft.OutlinedButton(
                     " 　注文一覧　 ",
+                    on_click=flet_app.check_order_history_dlg_modal,
                     style=ft.ButtonStyle(
                         color={
                             ft.MaterialState.HOVERED: ft.colors.WHITE,
@@ -455,7 +509,7 @@ def main(page: ft.Page):
                         shape=ft.RoundedRectangleBorder(radius=5),
                         padding=18
                     ),
-                    icon=ft.icons.ADD_SHOPPING_CART,
+                    icon=ft.icons.FORMAT_LIST_BULLETED_ROUNDED,
                 ),
                 margin=ft.margin.only(top=25, bottom=25, right=10, left=10),
             ),
