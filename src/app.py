@@ -307,6 +307,34 @@ class FletApp(object):
 
         self.page.update()
 
+    # お会計リクエスト (はい押下時)
+    def bill_request(self, e):
+        # モーダルダイアログを閉じる
+        self.dlg_modal.open = False
+
+        print("お会計を行いました.")
+
+        if len(self.order_history_dict) == 0:
+            order_text = "\n注文商品はありません"
+        else:
+            order_text = ""
+            for one_order_name in self.order_history_dict:
+                order_text = order_text + "\n{}:{}個".format(one_order_name, self.order_history_dict[one_order_name])
+
+        print("お会計が行われました.{}".format(order_text))
+
+        # LINE用のトークンが設定されている場合
+        if self.line_bot_api is not None and self.line_bot_userid is not None:
+            try:
+                self.line_bot_api.push_message(self.line_bot_userid, TextSendMessage(text="お会計が行われました.{}".format(order_text)))
+            except LineBotApiError as e:
+                print("->LINE送信エラー (お会計に失敗しました)")
+
+        # 注文履歴をクリア
+        self.order_history_dict = {}
+
+        self.page.update()
+
     # モーダルウィンドウ閉じる (閉じる・いいえ押下時)
     def modal_close(self, e):
         # モーダルダイアログを閉じる
@@ -352,6 +380,41 @@ class FletApp(object):
         if len(self.dlg_modal.actions) == 0:
             self.dlg_modal.actions.append(ft.Row([ft.Container(content=ft.Text("注文した商品はありません"), margin=ft.margin.only(top=1, bottom=4))], alignment=ft.MainAxisAlignment.CENTER))
         self.dlg_modal.actions.append(ft.Row([ft.TextButton("閉じる", icon=ft.icons.CANCEL, icon_color="red400", on_click=self.modal_close)], alignment=ft.MainAxisAlignment.CENTER))
+        self.dlg_modal.open = True
+        self.page.update()
+
+    # モーダルダイアログを開く (お会計ダイアログ)
+    def bill_dlg_modal(self, e):
+        # 選択時のモーダルダイアログ
+        self.dlg_modal = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("お会計"),
+            content=ft.Text("お会計を行いますか?", text_align=ft.TextAlign.CENTER),
+            actions=[
+                ft.Row(
+                    [
+                        ft.Container(
+                            content=ft.ElevatedButton(" は い ", icon=ft.icons.CHECK_CIRCLE_SHARP, color="white", bgcolor="blue", on_click=self.bill_request),
+                            margin=ft.margin.only(top=10),  # 上方向のみマージンを入れる
+                            # padding=10,
+                            alignment=ft.alignment.center_left
+                        ),
+
+                        ft.Container(
+                            content=ft.ElevatedButton("いいえ", icon=ft.icons.CANCEL, color="white", bgcolor="red", on_click=self.modal_close),
+                            margin=ft.margin.only(top=10),  # 上方向のみマージンを入れる
+                            # padding=10,
+                            alignment=ft.alignment.center_right
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                )
+
+            ],
+            on_dismiss=lambda e: print("Modal dialog dismissed!"),
+        )
+
+        self.page.dialog = self.dlg_modal
         self.dlg_modal.open = True
         self.page.update()
 
@@ -480,6 +543,7 @@ def main(page: ft.Page):
             ft.Container(
                 content = ft.OutlinedButton(
                     "　　お会計　　",
+                    on_click=flet_app.bill_dlg_modal,
                     style=ft.ButtonStyle(
                         color={
                             ft.MaterialState.HOVERED: ft.colors.WHITE,
